@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import './App.css'
 import StorageDeviceTable from './components/StorageDeviceTable'
 import SustainabilityTable from './components/SustainabilityTable'
@@ -6,192 +6,37 @@ import PerformanceTable from './components/PerformanceTable'
 import FeatureTable from './components/FeatureTable'
 import SystemDetailPage from './components/SystemDetailPage'
 
-// Mock data for HPE storage products - focusing on HPE GreenLake for File Storage
-const mockHPEStorageData = [
-  {
-    id: 1,
-    name: "HPE GreenLake for File Storage - Enterprise",
-    productLine: "HPE GreenLake",
-    type: "File Storage",
-    tier: "Enterprise",
-    capacity: "100TB",
-    readSpeed: 6500,
-    writeSpeed: 4800,
-    iops: 850000,
-    latency: 0.12,
-    price: 15000,
-    score: 94,
-    greenScore: 92,
-    featureScore: 88,
-    dataReduction: "5:1",
-    snapshots: "Yes",
-    replication: "Yes",
-    protocols: ["NFS", "SMB", "S3"],
-    deployment: "Cloud-managed",
-    sustainability: {
-      powerEfficiency: 92,
-      carbonReduction: 35
-    }
-  },
-  {
-    id: 2,
-    name: "HPE GreenLake for File Storage - Standard",
-    productLine: "HPE GreenLake",
-    type: "File Storage",
-    tier: "Standard",
-    capacity: "50TB",
-    readSpeed: 4200,
-    writeSpeed: 3800,
-    iops: 650000,
-    latency: 0.18,
-    price: 8500,
-    score: 87,
-    greenScore: 89,
-    featureScore: 85,
-    dataReduction: "4:1",
-    snapshots: "Yes",
-    replication: "Yes",
-    protocols: ["NFS", "SMB"],
-    deployment: "Cloud-managed",
-    sustainability: {
-      powerEfficiency: 88,
-      carbonReduction: 30
-    }
-  },
-  {
-    id: 3,
-    name: "HPE GreenLake for File Storage - Basic",
-    productLine: "HPE GreenLake",
-    type: "File Storage",
-    tier: "Basic",
-    capacity: "25TB",
-    readSpeed: 2800,
-    writeSpeed: 2400,
-    iops: 420000,
-    latency: 0.25,
-    price: 4500,
-    score: 78,
-    greenScore: 84,
-    featureScore: 75,
-    dataReduction: "3:1",
-    snapshots: "Yes",
-    replication: "Optional",
-    protocols: ["NFS", "SMB"],
-    deployment: "Cloud-managed",
-    sustainability: {
-      powerEfficiency: 82,
-      carbonReduction: 25
-    }
-  },
-  {
-    id: 4,
-    name: "HPE Alletra 6000 File Storage",
-    productLine: "HPE Alletra",
-    type: "File Storage",
-    tier: "High-Performance",
-    capacity: "200TB",
-    readSpeed: 8500,
-    writeSpeed: 6200,
-    iops: 1200000,
-    latency: 0.08,
-    price: 28000,
-    score: 96,
-    greenScore: 94,
-    featureScore: 92,
-    dataReduction: "6:1",
-    snapshots: "Yes",
-    replication: "Yes",
-    protocols: ["NFS", "SMB", "S3", "iSCSI"],
-    deployment: "On-premises",
-    sustainability: {
-      powerEfficiency: 95,
-      carbonReduction: 40
-    }
-  },
-  {
-    id: 5,
-    name: "HPE Alletra 9000 File Storage",
-    productLine: "HPE Alletra",
-    type: "File Storage",
-    tier: "Mission-Critical",
-    capacity: "500TB",
-    readSpeed: 12000,
-    writeSpeed: 8500,
-    iops: 1800000,
-    latency: 0.05,
-    price: 65000,
-    score: 98,
-    greenScore: 96,
-    featureScore: 95,
-    dataReduction: "8:1",
-    snapshots: "Yes",
-    replication: "Yes",
-    protocols: ["NFS", "SMB", "S3", "iSCSI", "FC"],
-    deployment: "On-premises",
-    sustainability: {
-      powerEfficiency: 98,
-      carbonReduction: 45
-    }
-  },
-  {
-    id: 6,
-    name: "HPE Primera File Services",
-    productLine: "HPE Primera",
-    type: "File Storage",
-    tier: "Mission-Critical",
-    capacity: "1PB",
-    readSpeed: 15000,
-    writeSpeed: 11000,
-    iops: 2200000,
-    latency: 0.03,
-    price: 120000,
-    score: 99,
-    greenScore: 98,
-    featureScore: 97,
-    dataReduction: "10:1",
-    snapshots: "Yes",
-    replication: "Yes",
-    protocols: ["NFS", "SMB", "S3", "iSCSI", "FC", "NVMe-oF"],
-    deployment: "On-premises",
-    sustainability: {
-      powerEfficiency: 99,
-      carbonReduction: 50
-    }
-  }
-];
-
-// HPE Industry Average Benchmarks for comparison
-const hpeBenchmarkData = {
-  overview: {
-    deviceScore: 85,
-    score: 82,
-    hpePerformanceScore: 88
-  },
-  sustainability: {
-    greenScore: 78,
-    powerEfficiency: 75,
-    carbonReduction: 25
-  },
-  performance: {
-    score: 82,
-    readSpeed: 3500,
-    writeSpeed: 2800,
-    iops: 400000,
-    latency: 0.25
-  },
-  features: {
-    featureScore: 80,
-    dataReductionRatio: 3.5,
-    protocolsSupported: 3.2
-  }
-};
+const API_URL = 'http://localhost:4000/api/devices'
 
 function App() {
-  // Calculate overall device score for each device
-  const enrichedData = mockHPEStorageData.map(device => ({
-    ...device,
-    deviceScore: Math.round((device.score + device.greenScore + device.featureScore) / 3)
-  }));
+  const [hpeStorageData, setHpeStorageData] = useState([])
+  const [sortConfig, setSortConfig] = useState({ key: 'deviceScore', direction: 'desc' })
+  const [selectedSystem, setSelectedSystem] = useState(null)
+
+  // Fetch device data from API every 10 minutes
+  useEffect(() => {
+    let intervalId
+
+    const fetchData = async () => {
+      try {
+        const response = await fetch(API_URL)
+        const data = await response.json()
+        // Calculate deviceScore for each device
+        const enrichedData = data.map(device => ({
+          ...device,
+          deviceScore: Math.round((device.score + device.greenScore + device.featureScore) / 3)
+        }))
+        setHpeStorageData(enrichedData)
+      } catch (error) {
+        console.error('Error fetching device data:', error)
+      }
+    }
+
+    fetchData()
+    intervalId = setInterval(fetchData, 600000) // 10 minutes
+
+    return () => clearInterval(intervalId)
+  }, [])
 
   // Calculate averages from the mock data
   const calculateAverages = (data) => {
@@ -230,11 +75,10 @@ function App() {
     };
   };
 
-  const averageData = calculateAverages(enrichedData);
+  const averageData = calculateAverages(hpeStorageData);
   
-  const [hpeStorageData, setHpeStorageData] = useState(enrichedData);
-  const [sortConfig, setSortConfig] = useState({ key: 'deviceScore', direction: 'desc' });
-  const [selectedSystem, setSelectedSystem] = useState(null);
+  const [insightsView, setInsightsView] = useState(null);
+  const [insightsData, setInsightsData] = useState(null);
 
   // Sort the data based on current sort configuration
   const sortedData = React.useMemo(() => {
@@ -388,6 +232,28 @@ function App() {
             system={selectedSystem} 
             onBack={handleBackToList}
           />
+        </main>
+      </div>
+    );
+  }
+
+  if (hpeStorageData.length === 0) {
+    return (
+      <div className="app">
+        <header className="app-header">
+          <div className="header-content">
+            <div className="hpe-branding">
+              <div className="header-text">
+                <h1 className="header-title">HPE Storage Performance Dashboard</h1>
+                <p className="header-subtitle">Comprehensive analysis and comparison of HPE storage solutions</p>
+              </div>
+            </div>
+          </div>
+        </header>
+        <main className="app-main">
+          <div className="loading-spinner">
+            <p>Loading data...</p>
+          </div>
         </main>
       </div>
     );
